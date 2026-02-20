@@ -101,16 +101,51 @@ def load_snaps():
 def save_snaps(df: pd.DataFrame):
     df.to_csv(SNAP_FILE, index=False)
 
+def def _to_number(x):
+    if x is None:
+        return None
+
+    # Some APIs return {"value": 123}
+    if isinstance(x, dict) and "value" in x:
+        x = x["value"]
+
+    # Already numeric
+    if isinstance(x, (int, float)):
+        return float(x)
+
+    # Parse strings like "1,234", "45%", "01:23:45"
+    if isinstance(x, str):
+        s = x.strip()
+
+        # time like HH:MM:SS
+        if ":" in s and all(part.isdigit() for part in s.split(":")):
+            parts = [int(p) for p in s.split(":")]
+            if len(parts) == 3:
+                h, m, sec = parts
+                return float(h * 3600 + m * 60 + sec)
+            if len(parts) == 2:
+                m, sec = parts
+                return float(m * 60 + sec)
+
+        is_percent = s.endswith("%")
+        s = s.replace(",", "").replace("%", "")
+
+        try:
+            val = float(s)
+            return val / 100.0 if is_percent else val
+        except:
+            return None
+
+    return None
+
+
 def pluck_num(d, *keys):
     cur = d
     for k in keys:
         if not isinstance(cur, dict) or k not in cur:
             return None
         cur = cur[k]
-    try:
-        return float(cur)
-    except Exception:
-        return None
+    return _to_number(cur)
 
 def career_to_table(career_json: dict) -> pd.DataFrame:
     # career_json: { "all-heroes": {...}, "ana": {...}, ... }
