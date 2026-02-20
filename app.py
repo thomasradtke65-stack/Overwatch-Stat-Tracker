@@ -7,6 +7,15 @@ import requests
 import streamlit as st
 import plotly.express as px
 
+ALL_HEROES = [
+    "all-heroes",
+    "ana","ashe","baptiste","bastion","brigitte","cassidy","doomfist","dva","echo",
+    "genji","hanzo","illari","junkerqueen","junkrat","kiriko","lifeweaver","lucio",
+    "mauga","mei","mercy","moira","orisa","pharah","ramattra","reaper","reinhardt",
+    "roadhog","sigma","sojourn","soldier-76","sombra","symmetra","torbjorn","tracer",
+    "widowmaker","winston","wrecking-ball","zarya","zenyatta"
+]
+
 DATA_DIR = "data"
 SNAP_FILE = os.path.join(DATA_DIR, "snapshots.csv")
 
