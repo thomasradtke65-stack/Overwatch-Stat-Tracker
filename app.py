@@ -101,7 +101,7 @@ def load_snaps():
 def save_snaps(df: pd.DataFrame):
     df.to_csv(SNAP_FILE, index=False)
 
-def def _to_number(x):
+def _to_number(x):
     if x is None:
         return None
 
