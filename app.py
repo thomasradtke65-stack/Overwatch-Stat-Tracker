@@ -27,12 +27,29 @@ def battletag_to_player_id(btag: str) -> str:
     # Name#1234 -> Name-1234
     return btag.strip().replace("#", "-")
 
-def overfast_get(path: str, params=None):
+import time
+import requests
+
+def overfast_get(path: str, params=None, max_retries: int = 5):
     base = "https://overfast-api.tekrop.fr"
     url = f"{base}{path}"
-    r = requests.get(url, params=params or {}, headers={"User-Agent": "OW-Stats-Streamlit/1.0"}, timeout=20)
-    r.raise_for_status()
-    return r.json()
+    headers = {"User-Agent": "OW-Stats-Streamlit/1.0"}
+
+    delay = 1.0
+    for attempt in range(max_retries):
+        r = requests.get(url, params=params or {}, headers=headers, timeout=20)
+
+        if r.status_code != 429:
+            r.raise_for_status()
+            return r.json()
+
+        retry_after = r.headers.get("Retry-After")
+        wait_s = float(retry_after) if retry_after and retry_after.isdigit() else delay
+        time.sleep(wait_s)
+
+        delay = min(delay * 2, 30)
+
+    raise requests.HTTPError(f"429 Too Many Requests (gave up after {max_retries} retries): {url}")
 
 def get_summary(player_id: str):
     return overfast_get(f"/players/{player_id}/summary")
@@ -133,6 +150,15 @@ with st.sidebar:
 
 snaps = load_snaps()
 
+import streamlit as st
+
+@st.cache_data(ttl=60)
+def cached_summary(pid: str):
+    return get_summary(pid)
+
+@st.cache_data(ttl=60)
+def cached_stats(pid: str, gamemode: str, platform: str | None, hero: str | None):
+    return get_stats(pid, gamemode, platform, hero)
 # State
 if "summary" not in st.session_state:
     st.session_state.summary = None
@@ -142,13 +168,25 @@ if "pid" not in st.session_state:
     st.session_state.pid = None
 
 if fetch:
+    if "last_fetch" not in st.session_state:
+        st.session_state.last_fetch = 0.0
+
+    cooldown = 5  # seconds
+    import time
+
+    if time.time() - st.session_state.last_fetch < cooldown:
+        st.warning("Please wait a few seconds before fetching again.")
+        st.stop()
+
+    st.session_state.last_fetch = time.time()
+    
     if not battletag.strip():
         st.error("Enter a BattleTag first.")
     else:
         pid = battletag_to_player_id(battletag)
         try:
-            summary = get_summary(pid)
-            stats = get_stats(pid, gamemode, platform or None, hero.strip() or None)
+            summary = cached_summary(pid)
+            stats = cached_stats(pid, gamemode, platform or None, hero.strip() or None)
             table = career_to_table(stats)
 
             st.session_state.summary = summary
